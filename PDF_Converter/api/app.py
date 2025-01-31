@@ -1,14 +1,11 @@
-import nest_asyncio
-nest_asyncio.apply()
-
-from fastapi import FastAPI, File, UploadFile
-import pdfplumber
+import os
+import cv2
 import pandas as pd
 import pytesseract
-import cv2
-import os
+from fastapi import FastAPI, File, UploadFile
 from pdf2image import convert_from_path
 from fastapi.responses import FileResponse
+import pdfplumber
 
 app = FastAPI()
 
@@ -72,7 +69,3 @@ async def convert_pdf_to_csv(file: UploadFile = File(...)):
     if result:
         return FileResponse(output_csv, filename=output_csv, media_type="text/csv")
     return {"error": "No data extracted"}
-
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
