@@ -1,13 +1,18 @@
+from fastapi import FastAPI, File, UploadFile
 import os
 import cv2
 import pandas as pd
 import pytesseract
-from fastapi import FastAPI, File, UploadFile
 from pdf2image import convert_from_path
 from fastapi.responses import FileResponse
 import pdfplumber
 
 app = FastAPI()
+
+# Root route for the welcome message
+@app.get("/")
+def read_root():
+    return {"message": "Welcome to the PDF to CSV API!"}
 
 # Function to check if a PDF contains selectable text
 def is_text_based_pdf(pdf_path):
