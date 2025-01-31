@@ -1,0 +1,8 @@
+fastapi
+uvicorn
+pdfplumber
+pandas
+pytesseract
+opencv-python-headless
+pdf2image
+nest-asyncio
