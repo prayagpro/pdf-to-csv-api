@@ -2,14 +2,14 @@
   "version": 2,
   "builds": [
     {
-      "src": "PDF_Converter/app.py",
+      "src": "PDF_Converter/api/app.py",
       "use": "@vercel/python"
     }
   ],
   "routes": [
     {
       "src": "/(.*)",
-      "dest": "/PDF_Converter/app.py"
+      "dest": "/PDF_Converter/api/app.py"
     }
   ]
 }
