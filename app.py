@@ -1,18 +1,21 @@
-from fastapi import FastAPI, File, UploadFile
-import os
-import cv2
+import nest_asyncio
+nest_asyncio.apply()
+
+from fastapi import FastAPI, File, UploadFile, HTTPException
+import pdfplumber
 import pandas as pd
 import pytesseract
+import cv2
+import os
 from pdf2image import convert_from_path
 from fastapi.responses import FileResponse
-import pdfplumber
+from pathlib import Path
 
 app = FastAPI()
 
-# Root route for the welcome message
-@app.get("/")
-def read_root():
-    return {"message": "Welcome to the PDF to CSV API!"}
+# Define temporary directory (safe for Render & cloud environments)
+TEMP_DIR = Path("/tmp")
+TEMP_DIR.mkdir(exist_ok=True)
 
 # Function to check if a PDF contains selectable text
 def is_text_based_pdf(pdf_path):
@@ -43,12 +46,12 @@ def extract_text_from_scanned_pdf(pdf_path, output_csv):
     extracted_text = []
 
     for i, image in enumerate(images):
-        image_path = f"temp_page_{i}.png"
+        image_path = TEMP_DIR / f"temp_page_{i}.png"
         image.save(image_path, "PNG")  # Save as image file
-        img = cv2.imread(image_path)
+        img = cv2.imread(str(image_path))
         text = pytesseract.image_to_string(img)  # Apply OCR
         extracted_text.append(text)
-        os.remove(image_path)  # Clean up temp file
+        image_path.unlink()  # Clean up temp file
 
     df = pd.DataFrame({"Extracted_Text": extracted_text})
     df.to_csv(output_csv, index=False)
@@ -56,21 +59,33 @@ def extract_text_from_scanned_pdf(pdf_path, output_csv):
 
 @app.post("/convert_pdf_to_csv/")
 async def convert_pdf_to_csv(file: UploadFile = File(...)):
-    pdf_path = f"temp_{file.filename}"
-    
+    if not file.filename.endswith(".pdf"):
+        raise HTTPException(status_code=400, detail="Only PDF files are allowed.")
+
+    pdf_path = TEMP_DIR / file.filename
+
     # Save uploaded file
     with open(pdf_path, "wb") as f:
-        f.write(file.file.read())
+        f.write(await file.read())  # Use async read
 
-    output_csv = f"{file.filename}.csv"
+    output_csv = TEMP_DIR / f"{file.filename}.csv"
 
-    if is_text_based_pdf(pdf_path):
-        result = extract_tables_from_pdf(pdf_path, output_csv)
-    else:
-        result = extract_text_from_scanned_pdf(pdf_path, output_csv)
+    try:
+        if is_text_based_pdf(pdf_path):
+            result = extract_tables_from_pdf(str(pdf_path), str(output_csv))
+        else:
+            result = extract_text_from_scanned_pdf(str(pdf_path), str(output_csv))
+        
+        pdf_path.unlink()  # Clean up temp PDF file after processing
+
+        if result:
+            return FileResponse(str(output_csv), filename=output_csv.name, media_type="text/csv")
+        else:
+            return {"error": "No data extracted"}
     
-    os.remove(pdf_path)  # Clean up the temporary file
+    except Exception as e:
+        return {"error": f"An error occurred: {str(e)}"}
 
-    if result:
-        return FileResponse(output_csv, filename=output_csv, media_type="text/csv")
-    return {"error": "No data extracted"}
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
