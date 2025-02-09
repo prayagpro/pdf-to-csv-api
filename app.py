@@ -23,7 +23,7 @@ def is_text_based_pdf(pdf_path):
         for page in pdf.pages:
             if page.extract_text():
                 return True  # Found text, so it's a text-based PDF
-    return False  # No text found, it's likely a scanned PDF
+    return False  # No text found, likely a scanned PDF
 
 # ✅ Function to extract tables from a text-based PDF
 def extract_tables_from_pdf(pdf_path, output_csv):
@@ -68,23 +68,23 @@ async def convert_pdf_to_csv(file: UploadFile = File(...)):
 
     # ✅ Fix: Read and save file using async
     with open(pdf_path, "wb") as f:
-        f.write(await file.read())
+        f.write(await file.read())  # Read file once
 
     output_csv = TEMP_DIR / f"{file.filename}.csv"
 
     try:
-        if is_text_based_pdf(str(pdf_path)):
+        if is_text_based_pdf(str(pdf_path)):  # Ensure string path
             result = extract_tables_from_pdf(str(pdf_path), str(output_csv))
         else:
             result = extract_text_from_scanned_pdf(str(pdf_path), str(output_csv))
-
+        
         pdf_path.unlink()  # ✅ Delete temp PDF after processing
 
         if result:
             return FileResponse(str(output_csv), filename=output_csv.name, media_type="text/csv")
         else:
             return {"error": "No data extracted"}
-
+    
     except Exception as e:
         return {"error": f"An error occurred: {str(e)}"}
 
